@@ -4,6 +4,10 @@
 
 Después de testear varias configuraciones para levantar un stack de Kong funcional he llegado a la configuración almacenada en este repositorio. Kong es una plataforma que proporciona un api gateway pensado bajo la arquitectura de microservicios.
 
+## REQUISITOS ##
+- Docker
+- Docker Compose ***(en Windows es parte de Docker Tools o Boot2Docker)***
+
 ## CONTENIDO ##
 - PostgreSQL
 - Kong (instancia para migración de parámetros)
@@ -17,12 +21,12 @@ Permite levantar stack en modo desarrollo con almacenamiento de las db dentro de
 
 ### Load balancing y monitoreo ###
  Se agrega:
- - Traefik (HA-LB para contendores con agregación dinámica)**
+ - Traefik (HA-LB para contenedores con agregación dinámica)**
  - CAdvisor (Monitoreo de contenedores con agreación dinámica)
 
-***En caso de usar Traefik se deben agregar en la tabla hosts las siguientes URL:
+***En caso de usar Traefik se deben agregar en la tabla hosts las siguientes URL:***
 
-127.0.0.1 konga.bydefault.test traefik.bydefault.test cadvisor.bydefault.test***
+`127.0.0.1 konga.bydefault.test traefik.bydefault.test cadvisor.bydefault.test`
 
 ## BUILD Y EJECUCIÓN ##
 ### Docker Compose ###
