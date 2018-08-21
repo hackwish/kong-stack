@@ -1,0 +1,121 @@
+version: '2.1'
+
+services:
+  kong-database:
+    image: postgres:9.5
+    # volumes:
+    #   - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=kong
+      - POSTGRES_DB=kong
+    healthcheck:
+      test: "pg_isready -U kong && psql -d kong -U kong -c \"SELECT 1=1\""
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - 5432:5432
+    labels:
+      - "traefik.enable=false"
+
+  # kong-database-cassandra:
+  #   image: cassandra:3
+  #   ports:
+  #     - 9042:9042
+
+  kong-migration:
+    image: kong
+    depends_on:
+      kong-database:
+        condition: service_healthy
+      # kong-database-cassandra:
+      #    condition: service_healthy
+    links:
+      - kong-database:kong-database.local
+      # - kong-database-cassandra:kong-database-cassandra.local
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=kong-database
+      # - KONG_CASSANDRA_CONTACT_POINTS=kong-database-cassandra
+    command: sh -c "kong migrations up && sleep 30"
+    tty: true
+    healthcheck:
+      test: "if [[ -f migrations_run ]] ; then exit 0; else exit 1; fi"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=false"
+
+  kong:
+    image: kong
+    depends_on:
+      kong-database:
+        condition: service_healthy
+      kong-migration:
+        condition: service_healthy
+    healthcheck:
+      test: "kong health"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=kong-database
+      #CASSANDRA
+      # - KONG_DATABASE=cassandra
+      # - KONG_CASSANDRA_CONTACT_POINTS=kong-database-cassandra
+      #ADMIN AND LOGS PARAMS
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_LOG_LEVEL=info
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+      - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
+      # - KONG_CUSTOM_PLUGINS=helloworld
+    links:
+      - kong-database:kong-database.local
+      # - kong-database-cassandra:kong-database-cassandra.local
+    ports:
+      - 8001:8001
+      - 8000:8000
+      - 8443:8443
+      - 8444:8444
+    labels:
+      - "traefik.enable=false"
+
+  mongo:
+    image: mongo
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - 27017:27017
+    depends_on:
+      - kong
+    labels:
+      - "traefik.enable=false"
+
+  konga:
+    image: pantsel/konga
+    depends_on:
+      - kong
+      - mongo
+    ports:
+      - 1337:1337
+    environment:
+      - DB_ADAPTER=mongo
+      - DB_HOST=mongo
+      - DB_DATABASE=konga
+      - NODE_ENV=development #production
+    links:
+      - kong:kong.local
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=konga"
+      - "traefik.frontend.rule=Host:konga.bydefault.test"
+      - 'traefik.port=1337'
+
+volumes:
+  # postgres_data:
+  mongo_data:
